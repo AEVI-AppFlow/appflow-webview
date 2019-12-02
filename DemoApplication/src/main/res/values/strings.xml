@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">AppFlow WebView Demo Application</string>
+
+    <string name="title_webview">AppFlow WebView</string>
+</resources>

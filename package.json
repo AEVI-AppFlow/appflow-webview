@@ -1,0 +1,19 @@
+{
+  "name": "appflow-webview",
+  "version": "0.0.1",
+  "main": "www/index.js",
+  "types": "www/index.d.ts",
+  "cordova": {
+    "id": "com.aevi.sdk.pos.webview",
+    "platforms": [
+      "android"
+    ]
+  },
+  "keywords": [],
+  "author": "Brett Cherrington",
+  "license": "Apache-2.0",
+  "description": "",
+  "dependencies": {
+    "rxjs": "6.4.0"
+  }
+}

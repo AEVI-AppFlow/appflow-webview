@@ -1,0 +1,17 @@
+node_modules
+www
+platforms
+plugins
+
+*.iml
+.gradle
+/local.properties
+/.idea
+/.idea/workspace.xml
+/.idea/libraries
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+documentation
+artifacts

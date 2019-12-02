@@ -1,0 +1,14 @@
+apply plugin: 'maven-publish'
+
+project.afterEvaluate {
+    publishing {
+        publications {
+            aar(MavenPublication) {
+                version = rootProject.apiVersion
+                artifactId = project.name
+                groupId = project.group
+                artifact bundleReleaseAar
+            }
+        }
+    }
+}

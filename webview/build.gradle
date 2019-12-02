@@ -1,0 +1,42 @@
+apply plugin: 'com.android.library'
+
+group = 'com.aevi.sdk.pos.webview'
+version = "${apiVersion}"
+ext.applicationName = "ui-library"
+
+apply from: '../publish-repo.gradle'
+
+android {
+    compileSdkVersion projectTargetSdkVersion
+
+    defaultConfig {
+        minSdkVersion projectMinSdkVersion
+        targetSdkVersion projectTargetSdkVersion
+        versionCode apiVersionCode
+        versionName "${apiVersion}"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    lintOptions {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    testImplementation testDependencies.junit
+}
+
+apply from: '../aar-publisher.gradle'
+apply from: '../bintray-publish.gradle'
