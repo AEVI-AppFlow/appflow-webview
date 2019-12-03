@@ -1,1 +1,1 @@
-./gradlew :ui-library:assemble publishAarPublicationToMavenLocal
+./gradlew :webview:assemble publishAarPublicationToMavenLocal

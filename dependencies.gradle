@@ -12,6 +12,8 @@ ext {
     mockitoVersion = '1.10.19'
     assertJVersion = '2.7.0'
 
+    appFlow = '2.1.2'
+
     presentationDependencies = [
             appCompat        : "androidx.appcompat:appcompat:$appCompat",
             supportAnnotation: "androidx.annotation:annotation:$annotation",
@@ -19,7 +21,8 @@ ext {
     ]
 
     domainDependencies = [
-            gson: "com.google.code.gson:gson:$gsonVersion",
+            gson   : "com.google.code.gson:gson:$gsonVersion",
+            appFlow: "com.aevi.sdk.pos.flow:payment-initiation-api:$appFlow"
     ]
 
     testDependencies = [

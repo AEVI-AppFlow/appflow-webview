@@ -35,6 +35,8 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
+    implementation domainDependencies.appFlow
+
     testImplementation testDependencies.junit
 }
 

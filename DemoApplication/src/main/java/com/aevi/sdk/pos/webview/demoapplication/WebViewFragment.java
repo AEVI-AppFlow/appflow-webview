@@ -23,6 +23,7 @@ public class WebViewFragment extends DemoFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         appFlowWebView = view.findViewById(R.id.appflow_webview);
+        appFlowWebView.loadUrl("file:///android_asset/www/appflow.html");
         super.onViewCreated(view, savedInstanceState);
     }
 }

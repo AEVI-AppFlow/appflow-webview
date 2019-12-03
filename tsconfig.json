@@ -3,7 +3,7 @@
         "target": "es2015",
         "module": "amd",
         "declaration": false,
-        "outFile": "./webview/src/main/assets/www/js/index.js",
+        "outFile": "./webview/src/main/assets/www/js/appflow.js",
         "strict": true,
         "strictPropertyInitialization": false,
         "moduleResolution": "node"

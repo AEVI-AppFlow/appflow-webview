@@ -1,26 +1,45 @@
+import { AppFlowBridge } from  './appflow-bridge';
+
 import { Observable, NEVER, Subject, ReplaySubject } from 'rxjs';
 import { finalize, share } from 'rxjs/operators';
 import { PaymentClient, Payment, PaymentResponse, ResponseQuery, FlowEvent, Device, PaymentSettings, Request, Response } from 'appflow-payment-initiation-api';
 
-declare var cordova: Cordova;
+declare var appflow: AppFlowBridge;
 
-export function cordovaExec<T>(action: string, args?: any[]): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-        cordova.exec((response) => {
-            resolve(response);
-        }, (e) => {
-            reject(`${e}`);
-        }, 'AppFlowPlugin', action, args);
-    })
+var callbackMap = new Map<string, CallbackContext>();
+
+export function callbackFromNative(id: string, status: string, param: string) {
+    if(callbackMap.has(id)) {
+        var callMth = callbackMap.get(id);
+        if(callMth) {
+            if(status === "OK") {
+                callMth.success(param);
+            } else {
+                callMth.error(param);
+            }
+        }
+    }
+};
+
+function exec(action: (args?: any[]) => string, callback: (data: string) => void, error: (data: string) => void, args?: any[]) {
+    var id = action(args);
+    var callCtx = new CallbackContext(id, callback, error);
+    callbackMap.set(id, callCtx);
 }
 
-export function cordovaExecCallback<T>(action: string, callback: (data: string) => void, args?: any[]) {
-    cordova.exec(callback, (e) => {
-        console.log(`Failed to setup callback action ${e}`);
-    }, 'AppFlowPlugin', action, args);
+class CallbackContext {
+    id: string;
+    success: (data: string) => void;
+    error: (data: string) => void;
+
+    constructor(id: string, success: (data: string) => void, error: (data: string) => void) {
+        this.id = id;
+        this.success = success;
+        this.error = error;
+    }
 }
 
-export class PaymentClientCordova implements PaymentClient {
+export class PaymentClientWebView implements PaymentClient {
 
     private paymentResponseSubject = new Subject<PaymentResponse>();
     private responseSubject = new Subject<Response>();
@@ -29,14 +48,14 @@ export class PaymentClientCordova implements PaymentClient {
     private paymentSettings: ReplaySubject<PaymentSettings> = new ReplaySubject(1);
 
     constructor() {
-        PaymentClientCordova.eventsSubject.pipe(
-            finalize(() => {
-                cordovaExec<string>('clearEventsCallback').then(() => {
-                    console.log("Events callback cleared");
-                });
-            }), 
-            share()
-        );
+        // PaymentClientWebView.eventsSubject.pipe(
+        //     finalize(() => {
+        //         cordovaExec<string>('clearEventsCallback').then(() => {
+        //             console.log("Events callback cleared");
+        //         });
+        //     }), 
+        //     share()
+        // );
     }
 
     /**
@@ -49,12 +68,12 @@ export class PaymentClientCordova implements PaymentClient {
      * @return Single emitting a {@link PaymentSettings} instance
      */
     public getPaymentSettings(): Observable<PaymentSettings> {
-        cordovaExec<string>('getPaymentSettings').then((json) => {
+        exec(appflow.getPaymentSettings, (json) => {
             var ps = PaymentSettings.fromJson(json);
             console.log("NATIVE: PaymentSettings");
             console.log(ps)
             this.paymentSettings.next(ps);
-        }).catch((e) => {
+        }, (e) => {
             this.paymentSettings.error(e);
         });
 
