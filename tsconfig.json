@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-        "target": "es2015",
-        "module": "amd",
+        "target": "es5",
+        "module": "es6",
         "declaration": false,
-        "outFile": "./webview/src/main/assets/www/js/appflow.js",
+        "outDir": "./dist/",
         "strict": true,
         "strictPropertyInitialization": false,
         "moduleResolution": "node"

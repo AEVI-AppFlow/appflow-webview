@@ -1,34 +1,19 @@
-import { Observable, NEVER, Subject, ReplaySubject } from 'rxjs';
-import { PaymentClient, Payment, PaymentResponse, ResponseQuery, FlowEvent, Device, PaymentSettings, Request, Response } from 'appflow-payment-initiation-api';
-import { AppFlowBridge } from './appflow-bridge';
-
+import { NEVER, Subject, ReplaySubject } from 'rxjs';
+import { Payment, PaymentResponse, FlowEvent, PaymentSettings } from 'appflow-payment-initiation-api';
 import { v4 as uuid } from 'uuid';
-
-var callbackMap = new Map<string, CallbackContext>();
-
-class CallbackContext {
-    id: string;
-    success: (data: string) => void;
-    error: (data: string) => void;
-    keepAlive: boolean;
-
-    constructor(id: string, success: (data: string) => void, error: (data: string) => void, keepAlive: boolean = false) {
+var callbackMap = new Map();
+var CallbackContext = /** @class */ (function () {
+    function CallbackContext(id, success, error, keepAlive) {
+        if (keepAlive === void 0) { keepAlive = false; }
         this.id = id;
         this.success = success;
         this.error = error;
         this.keepAlive = keepAlive;
     }
-}
-
-export class PaymentClientWebView implements PaymentClient {
-
-    private paymentResponseSubject = new Subject<PaymentResponse>();
-    private responseSubject = new Subject<Response>();
-    private static eventsSubject = new Subject<FlowEvent>();
-
-    private paymentSettings: ReplaySubject<PaymentSettings> = new ReplaySubject(1);
-
-    constructor(private appFlowBridge: AppFlowBridge) {
+    return CallbackContext;
+}());
+var PaymentClientWebView = /** @class */ (function () {
+    function PaymentClientWebView(appFlowBridge) {
         // PaymentClientWebView.eventsSubject.pipe(
         //     finalize(() => {
         //         cordovaExec<string>('clearEventsCallback').then(() => {
@@ -37,41 +22,44 @@ export class PaymentClientWebView implements PaymentClient {
         //     }), 
         //     share()
         // );
-
+        var _this = this;
+        this.appFlowBridge = appFlowBridge;
+        this.paymentResponseSubject = new Subject();
+        this.responseSubject = new Subject();
+        this.paymentSettings = new ReplaySubject(1);
         // setup the response callback
-        var id = this.setupCallback((json) => {
+        var id = this.setupCallback(function (json) {
             var paymentResponse = PaymentResponse.fromJson(json);
             console.log("Got response in callback");
-            this.paymentResponseSubject.next(paymentResponse);
-        }, (e) => {
+            _this.paymentResponseSubject.next(paymentResponse);
+        }, function (e) {
             console.log("Got error from payment response");
             console.log(e);
         }, [], true);
-
         this.appFlowBridge.setPaymentResponseCallback(id);
     }
-    
-    private setupCallback(callback: (data: string) => void, error: (data: string) => void, args?: any[], keepAlive: boolean = false): string {
+    PaymentClientWebView.prototype.setupCallback = function (callback, error, args, keepAlive) {
+        if (keepAlive === void 0) { keepAlive = false; }
         var id = uuid();
         var callCtx = new CallbackContext(id, callback, error, keepAlive);
         callbackMap.set(id, callCtx);
         return id;
-    }
-
-    public callbackFromNative(id: string, status: string, param: string): void {
+    };
+    PaymentClientWebView.prototype.callbackFromNative = function (id, status, param) {
         console.log("Got callback for id: " + id + " status: " + status);
-        if(callbackMap.has(id)) {
+        if (callbackMap.has(id)) {
             var callMth = callbackMap.get(id);
-            if(callMth) {
-                if(status === "OK") {
+            if (callMth) {
+                if (status === "OK") {
                     callMth.success(param);
-                } else {
+                }
+                else {
                     callMth.error(param);
                 }
             }
         }
     };
-
+    ;
     /**
      * Retrieve a snapshot of the current payment settings.
      *
@@ -81,20 +69,19 @@ export class PaymentClientWebView implements PaymentClient {
      *
      * @return Single emitting a {@link PaymentSettings} instance
      */
-    public getPaymentSettings(): Observable<PaymentSettings> {
-        var id = this.setupCallback((json) => {
+    PaymentClientWebView.prototype.getPaymentSettings = function () {
+        var _this = this;
+        var id = this.setupCallback(function (json) {
             var ps = PaymentSettings.fromJson(json);
             console.log("NATIVE: PaymentSettings");
             console.log(ps);
-            this.paymentSettings.next(ps);
-        }, (e) => {
-            this.paymentSettings.error(e);
+            _this.paymentSettings.next(ps);
+        }, function (e) {
+            _this.paymentSettings.error(e);
         });
-
         this.appFlowBridge.getPaymentSettings(id);
         return this.paymentSettings.asObservable();
-    }
-
+    };
     /**
      * Initiate processing of the provided {@link Request}.
      *
@@ -111,7 +98,7 @@ export class PaymentClientWebView implements PaymentClient {
      * @param request The request
      * @return Completable that represents the acceptance of the request
      */
-    public initiateRequest(request: Request): Promise<void> {
+    PaymentClientWebView.prototype.initiateRequest = function (request) {
         // setup the response callback
         // cordovaExec<string>('setResponseCallback').then((json) => {
         //     var response = Response.fromJson(json);
@@ -122,9 +109,8 @@ export class PaymentClientWebView implements PaymentClient {
         //     console.log(error);
         // });
         // return cordovaExec('initiateRequest', [request.toJson()]);
-        return new Promise<void>(() => {});
-    }
-
+        return new Promise(function () { });
+    };
     /**
      * Initiate payment processing based on the provided {@link Payment}.
      *
@@ -141,28 +127,26 @@ export class PaymentClientWebView implements PaymentClient {
      * @param payment The payment to process
      * @return Completable that represents the acceptance of the request
      */
-    public initiatePayment(payment: Payment | string | any): Promise<void> {
-        
-        var id = this.setupCallback((json) => {
+    PaymentClientWebView.prototype.initiatePayment = function (payment) {
+        var id = this.setupCallback(function (json) {
             console.log("Payment initiated");
-        }, (e) => {
+        }, function (e) {
             console.log("Failed to initiate payment");
             console.log(e);
         });
-
-        if(payment instanceof Payment) {
+        if (payment instanceof Payment) {
             this.appFlowBridge.initiatePayment(id, payment.toJson());
-        } else if(typeof payment === "string") {
-            this.appFlowBridge.initiatePayment(id, payment);            
-        } else {
+        }
+        else if (typeof payment === "string") {
+            this.appFlowBridge.initiatePayment(id, payment);
+        }
+        else {
             this.appFlowBridge.initiatePayment(id, JSON.stringify(payment));
         }
-
-        return new Promise((resolve, reject) => {
+        return new Promise(function (resolve, reject) {
             // TODO
-        });     
-    }
-
+        });
+    };
     /**
      * Returns a stream of completed PaymentResponses for the given parameters.
      *
@@ -173,11 +157,10 @@ export class PaymentClientWebView implements PaymentClient {
      * @param responseQuery An object representing some parameters to limit the query by
      * @return An Observable stream of payment responses
      */
-    public queryPaymentResponses(responseQuery: ResponseQuery):  Observable<PaymentResponse> {
+    PaymentClientWebView.prototype.queryPaymentResponses = function (responseQuery) {
         console.log("queryPaymentResponses - Not implemented yet!");
         return NEVER;
-    }
-
+    };
     /**
      * Returns a stream of completed Responses for the given parameters
      *
@@ -188,11 +171,10 @@ export class PaymentClientWebView implements PaymentClient {
      * @param responseQuery An object representing some parameters to limit the query by
      * @return An Observable stream of responses
      */
-    public queryResponses(responseQuery: ResponseQuery): Observable<Response> {
+    PaymentClientWebView.prototype.queryResponses = function (responseQuery) {
         console.log("queryResponses - Not implemented yet!");
         return NEVER;
-    }
-
+    };
     /**
      * Query for devices connected to the processing service, if multi-device is enabled.
      *
@@ -206,11 +188,10 @@ export class PaymentClientWebView implements PaymentClient {
      *
      * @return Single emitting a list of {@link Device} objects containing basic device info
      */
-    public getDevices(): Observable<Array<Device>> {
+    PaymentClientWebView.prototype.getDevices = function () {
         console.log("getDevices - Not implemented yet!");
         return NEVER;
-    }
-
+    };
     /**
      * Subscribe to general system events.
      *
@@ -218,24 +199,24 @@ export class PaymentClientWebView implements PaymentClient {
      *
      * @return A stream that will emit {@link FlowEvent} items
      */
-    public subscribeToSystemEvents(): Observable<FlowEvent> {
+    PaymentClientWebView.prototype.subscribeToSystemEvents = function () {
         // cordovaExecCallback('setSystemEventsCallback', this.onFlowEvent, [{keepCallback: true}]);
         // return PaymentClientCordova.eventsSubject.asObservable();
         return NEVER;
-    }
-
-    private onFlowEvent(data: string) {
+    };
+    PaymentClientWebView.prototype.onFlowEvent = function (data) {
         var event = FlowEvent.fromJson(data);
         console.log("Got event in callback");
         console.log(event);
         //PaymentClientCordova.eventsSubject.next(event);
-    }
-
-    public subscribeToPaymentResponses(): Observable<PaymentResponse> {
+    };
+    PaymentClientWebView.prototype.subscribeToPaymentResponses = function () {
         return this.paymentResponseSubject.asObservable();
-    }
-
-    public subscribeToResponses(): Observable<Response> {
+    };
+    PaymentClientWebView.prototype.subscribeToResponses = function () {
         return this.responseSubject.asObservable();
-    }
-}
+    };
+    PaymentClientWebView.eventsSubject = new Subject();
+    return PaymentClientWebView;
+}());
+export { PaymentClientWebView };

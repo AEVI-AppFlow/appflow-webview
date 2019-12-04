@@ -19,15 +19,12 @@ import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
-import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import com.aevi.sdk.pos.flow.PaymentApi;
 import com.aevi.sdk.pos.flow.PaymentClient;
 import com.aevi.sdk.pos.flow.model.Payment;
-
-import java.util.UUID;
 
 import io.reactivex.disposables.Disposable;
 
@@ -39,37 +36,50 @@ public class AppFlowWebView extends WebView {
     private PaymentClient paymentClient;
     private Disposable eventsDispose;
 
+    private static CallbackContext paymentResponseCallback;
+    private static CallbackContext responseCallback;
+    private static CallbackContext eventsCallback;
+
     public AppFlowWebView(Context context) {
         super(context);
-        init(context);
     }
 
     public AppFlowWebView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        init(context);
     }
 
     public AppFlowWebView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init(context);
     }
 
-    private void init(Context context) {
-        paymentClient = PaymentApi.getPaymentClient(context);
+    public static CallbackContext getEventsCallback() {
+        return eventsCallback;
+    }
 
-        //        eventsDispose = paymentClient.subscribeToSystemEvents()
-        //                .subscribe(flowEvent -> {
-        //                    if (eventsCallback != null) {
-        //                        PluginResult result = new PluginResult(PluginResult.Status.OK, flowEvent.toJson());
-        //                        result.setKeepCallback(true);
-        //                        eventsCallback.sendPluginResult(result);
-        //                    }
-        //                }, throwable -> {
-        //                    Log.e(AppFlowWebView.class.getSimpleName(), "Failed to subscribe", throwable);
-        //                    if (eventsCallback != null) {
-        //                        eventsCallback.error("Failed to subscribe to events" + throwable.getMessage());
-        //                    }
-        //                });
+    public static CallbackContext getPaymentResponseCallback() {
+        return paymentResponseCallback;
+    }
+
+    public static CallbackContext getResponseCallback() {
+        return responseCallback;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        paymentClient = PaymentApi.getPaymentClient(getContext());
+
+        eventsDispose = paymentClient.subscribeToSystemEvents()
+                .subscribe(flowEvent -> {
+                    if (eventsCallback != null) {
+                        eventsCallback.success(flowEvent.toJson());
+                    }
+                }, throwable -> {
+                    Log.e(AppFlowWebView.class.getSimpleName(), "Failed to subscribe", throwable);
+                    if (eventsCallback != null) {
+                        eventsCallback.error("Failed to subscribe to events" + throwable.getMessage());
+                    }
+                });
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             if (0 != (getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE)) {
@@ -80,17 +90,26 @@ public class AppFlowWebView extends WebView {
         WebSettings settings = getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        addJavascriptInterface(new AppFlowInterface(), "appflow");
+        addJavascriptInterface(new AppFlowInterface(), "appFlowBridge");
     }
 
-    private class CallbackContext {
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (eventsDispose != null) {
+            eventsDispose.dispose();
+            eventsDispose = null;
+        }
+    }
+
+    public class CallbackContext {
 
         private final String SUCCESS = "OK";
         private final String ERROR = "ERROR";
         private final String id;
 
-        CallbackContext() {
-            id = UUID.randomUUID().toString();
+        CallbackContext(String id) {
+            this.id = id;
         }
 
         String getId() {
@@ -98,11 +117,11 @@ public class AppFlowWebView extends WebView {
         }
 
         void success(String json) {
-            callJavaScript("callbackFromNative", id, SUCCESS, json);
+            callJavaScript("paymentClient.callbackFromNative", id, SUCCESS, json);
         }
 
         void error(String error) {
-            callJavaScript("callbackFromNative", id, ERROR, error);
+            callJavaScript("paymentClient.callbackFromNative", id, ERROR, error);
         }
 
         private void callJavaScript(String methodName, Object... params) {
@@ -121,18 +140,12 @@ public class AppFlowWebView extends WebView {
                     stringBuilder.append(",");
                 }
             }
-            stringBuilder.append(")}catch(error){appflow.onError(error.message);}");
+            stringBuilder.append(")}catch(error){appFlowBridge.onError(error.message);}");
 
             Log.d("XXX", stringBuilder.toString());
-            evaluateJavascript(stringBuilder.toString(), new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(String s) {
-                    Log.d("XXX", "Executed javascript: " + s);
-                }
-            });
+            evaluateJavascript(stringBuilder.toString(), s -> Log.d("XXX", "Executed javascript: " + s));
         }
     }
-
 
     private class AppFlowInterface {
 
@@ -152,27 +165,40 @@ public class AppFlowWebView extends WebView {
         }
 
         @JavascriptInterface
-        public String getPaymentSettings() {
-            CallbackContext callbackContext = new CallbackContext();
+        public void getPaymentSettings(String id) {
+            CallbackContext callbackContext = new CallbackContext(id);
             paymentClient.getPaymentSettings()
                     .subscribe((paymentSettings) -> callbackContext.success(paymentSettings.toJson()),
                                throwable -> callbackContext.error(throwable.getMessage()));
-            return callbackContext.getId();
         }
 
         @JavascriptInterface
-        public String initiatePayment(String paymentJson) {
-            CallbackContext callbackContext = new CallbackContext();
+        public void initiatePayment(String id, String paymentJson) {
+            CallbackContext callbackContext = new CallbackContext(id);
             Payment payment = Payment.fromJson(paymentJson);
             paymentClient.initiatePayment(payment)
                     .subscribe(() -> callbackContext.success("Payment accepted"),
                                throwable -> callbackContext.error(throwable.getMessage()));
-            return callbackContext.getId();
         }
 
         @JavascriptInterface
         public void onError(String error) {
             throw new Error(error);
+        }
+
+        @JavascriptInterface
+        public void setPaymentResponseCallback(String id) {
+            paymentResponseCallback = new CallbackContext((id));
+        }
+
+        @JavascriptInterface
+        public void setResponseCallback(String id) {
+            responseCallback = new CallbackContext((id));
+        }
+
+        @JavascriptInterface
+        public void setEventsCallback(String id) {
+            eventsCallback = new CallbackContext((id));
         }
     }
 }

@@ -1,26 +1,16 @@
-import { PaymentApi, PaymentClient } from 'appflow-payment-initiation-api';
 import { PaymentClientWebView } from './payment-client-web-view';
-import { Observable, of } from 'rxjs';
-import { AppFlowBridge } from './appflow-bridge';
-
-export class PaymentApiWebView implements PaymentApi {
-
-    private static instance: PaymentApiWebView;
-
-    private paymentClient: PaymentClientWebView;
-
-    public static getInstance(appFlowBridge: AppFlowBridge): PaymentApi {
+import { of } from 'rxjs';
+var PaymentApiWebView = /** @class */ (function () {
+    function PaymentApiWebView(appFlowBridge) {
+        this.appFlowBridge = appFlowBridge;
+        this.paymentClient = new PaymentClientWebView(appFlowBridge);
+    }
+    PaymentApiWebView.getInstance = function (appFlowBridge) {
         if (!PaymentApiWebView.instance) {
             PaymentApiWebView.instance = new PaymentApiWebView(appFlowBridge);
         }
-
         return PaymentApiWebView.instance;
-    }
-
-    private constructor(private appFlowBridge: AppFlowBridge) { 
-        this.paymentClient = new PaymentClientWebView(appFlowBridge);
-    }
-
+    };
     /**
      * Get the API version.
      *
@@ -28,10 +18,9 @@ export class PaymentApiWebView implements PaymentApi {
      *
      * @return The API version
      */
-    public getApiVersion(): Observable<string> {
+    PaymentApiWebView.prototype.getApiVersion = function () {
         return of(this.appFlowBridge.getApiVersion());
-    }
-
+    };
     /**
      * Returns true if the processing service that handles API requests is installed.
      *
@@ -39,27 +28,25 @@ export class PaymentApiWebView implements PaymentApi {
      *
      * @return True if API processing service is installed, false otherwise
      */
-    public isProcessingServiceInstalled(): Observable<boolean> {
+    PaymentApiWebView.prototype.isProcessingServiceInstalled = function () {
         return of(this.appFlowBridge.isProcessingServiceInstalled());
-    }
-
+    };
     /**
      * Get the processing service version installed on this device.
      *
      * @return The processing service version (semver format)
      */
-    public getProcessingServiceVersion(): Observable<string> {
+    PaymentApiWebView.prototype.getProcessingServiceVersion = function () {
         return of(this.appFlowBridge.getProcessingServiceVersion());
-    }
-
+    };
     /**
      * Get a new instance of a {@link PaymentClient} to initiate payments.
      *
      * @return An instance of {@link PaymentClient}
      */
-    public getPaymentClient(): PaymentClient {
+    PaymentApiWebView.prototype.getPaymentClient = function () {
         return this.paymentClient;
-    }
-
-
-}
+    };
+    return PaymentApiWebView;
+}());
+export { PaymentApiWebView };
