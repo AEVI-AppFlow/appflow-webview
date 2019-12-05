@@ -19,11 +19,15 @@ import com.aevi.sdk.flow.model.FlowException;
 import com.aevi.sdk.pos.flow.model.PaymentResponse;
 import com.aevi.sdk.pos.flow.service.BasePaymentResponseListenerService;
 
+import androidx.annotation.NonNull;
+
 public class AppFlowPaymentResponseListenerService extends BasePaymentResponseListenerService {
+
+    private static final String TAG = AppFlowPaymentResponseListenerService.class.getSimpleName();
 
     @Override
     protected void notifyResponse(PaymentResponse paymentResponse) {
-        Log.d("XXX", "Got response: " + paymentResponse.toJson());
+        Log.d(TAG, "Got response: " + paymentResponse.toJson());
         AppFlowWebView.CallbackContext callback = AppFlowWebView.getPaymentResponseCallback();
         if (callback != null) {
             callback.success(paymentResponse.toJson());
@@ -31,8 +35,8 @@ public class AppFlowPaymentResponseListenerService extends BasePaymentResponseLi
     }
 
     @Override
-    protected void notifyError(String errorCode, String errorMessage) {
-        Log.d("XXX", "Got response error: " + errorCode + " " + errorMessage);
+    protected void notifyError(@NonNull String errorCode, @NonNull String errorMessage) {
+        Log.d(TAG, "Got response error: " + errorCode + " " + errorMessage);
         AppFlowWebView.CallbackContext callback = AppFlowWebView.getPaymentResponseCallback();
         if (callback != null) {
             FlowException fe = new FlowException(errorCode, errorMessage);

@@ -102,7 +102,7 @@ public class AppFlowWebView extends WebView {
         }
     }
 
-    public class CallbackContext {
+    class CallbackContext {
 
         private final String SUCCESS = "OK";
         private final String ERROR = "ERROR";
@@ -142,8 +142,7 @@ public class AppFlowWebView extends WebView {
             }
             stringBuilder.append(")}catch(error){appFlowBridge.onError(error.message);}");
 
-            Log.d("XXX", stringBuilder.toString());
-            evaluateJavascript(stringBuilder.toString(), s -> Log.d("XXX", "Executed javascript: " + s));
+            evaluateJavascript(stringBuilder.toString(), s -> Log.d(AppFlowWebView.class.getSimpleName(), "Executed javascript"));
         }
     }
 
@@ -199,6 +198,11 @@ public class AppFlowWebView extends WebView {
         @JavascriptInterface
         public void setEventsCallback(String id) {
             eventsCallback = new CallbackContext((id));
+        }
+
+        @JavascriptInterface
+        public void clearEventsCallback() {
+            eventsCallback = null;
         }
     }
 }

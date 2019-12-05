@@ -19,11 +19,15 @@ import com.aevi.sdk.flow.model.FlowException;
 import com.aevi.sdk.flow.model.Response;
 import com.aevi.sdk.flow.service.BaseResponseListenerService;
 
+import androidx.annotation.NonNull;
+
 public class AppFlowResponseListenerService extends BaseResponseListenerService {
+
+    private static final String TAG = AppFlowResponseListenerService.class.getSimpleName();
 
     @Override
     protected void notifyGenericResponse(Response response) {
-        Log.d("XXX", "Got generic response: " + response.toJson());
+        Log.d(TAG, "Got generic response: " + response.toJson());
         AppFlowWebView.CallbackContext callback = AppFlowWebView.getResponseCallback();
         if (callback != null) {
             callback.success(response.toJson());
@@ -31,13 +35,13 @@ public class AppFlowResponseListenerService extends BaseResponseListenerService 
     }
 
     @Override
-    protected void notifyStatusUpdateResponse(Response response) {
+    protected void notifyStatusUpdateResponse(@NonNull Response response) {
         notifyGenericResponse(response);
     }
 
     @Override
-    protected void notifyError(String errorCode, String errorMessage) {
-        Log.d("XXX", "Got response error: " + errorCode + " " + errorMessage);
+    protected void notifyError(@NonNull String errorCode, @NonNull String errorMessage) {
+        Log.d(TAG, "Got response error: " + errorCode + " " + errorMessage);
         AppFlowWebView.CallbackContext callback = AppFlowWebView.getResponseCallback();
         if (callback != null) {
             FlowException fe = new FlowException(errorCode, errorMessage);

@@ -31,4 +31,5 @@ export declare class AppFlowBridge {
     setPaymentResponseCallback(id: string): void;
     setResponseCallback(id: string): void;
     setEventsCallback(id: string): void;
+    clearEventsCallback(): void;
 }

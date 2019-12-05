@@ -1,4 +1,5 @@
 import { Observable, NEVER, Subject, ReplaySubject } from 'rxjs';
+import { finalize, share } from 'rxjs/operators';
 import { PaymentClient, Payment, PaymentResponse, ResponseQuery, FlowEvent, Device, PaymentSettings, Request, Response } from 'appflow-payment-initiation-api';
 import { AppFlowBridge } from './appflow-bridge';
 
@@ -29,17 +30,16 @@ export class PaymentClientWebView implements PaymentClient {
     private paymentSettings: ReplaySubject<PaymentSettings> = new ReplaySubject(1);
 
     constructor(private appFlowBridge: AppFlowBridge) {
-        // PaymentClientWebView.eventsSubject.pipe(
-        //     finalize(() => {
-        //         cordovaExec<string>('clearEventsCallback').then(() => {
-        //             console.log("Events callback cleared");
-        //         });
-        //     }), 
-        //     share()
-        // );
+        PaymentClientWebView.eventsSubject.pipe(
+            finalize(() => {
+                appFlowBridge.clearEventsCallback();
+                console.log("Events callback cleared");
+            }), 
+            share()
+        );
 
-        // setup the response callback
-        var id = this.setupCallback((json) => {
+        // setup the payment response callback
+        var prid = this.setupCallback((json) => {
             var paymentResponse = PaymentResponse.fromJson(json);
             console.log("Got response in callback");
             this.paymentResponseSubject.next(paymentResponse);
@@ -47,8 +47,19 @@ export class PaymentClientWebView implements PaymentClient {
             console.log("Got error from payment response");
             console.log(e);
         }, [], true);
+        this.appFlowBridge.setPaymentResponseCallback(prid);
 
-        this.appFlowBridge.setPaymentResponseCallback(id);
+        // setup the response callback
+        var rid = this.setupCallback((json) => {
+            var response = Response.fromJson(json);
+            console.log("Got response in callback");
+            this.responseSubject.next(response);
+        }, (e) => {
+            console.log("Got error from response");
+            console.log(e);
+        }, [], true);
+
+        this.appFlowBridge.setResponseCallback(rid);
     }
     
     private setupCallback(callback: (data: string) => void, error: (data: string) => void, args?: any[], keepAlive: boolean = false): string {
@@ -68,6 +79,9 @@ export class PaymentClientWebView implements PaymentClient {
                 } else {
                     callMth.error(param);
                 }
+                if(!callMth.keepAlive) {
+                    callbackMap.delete(id);
+                }
             }
         }
     };
@@ -84,7 +98,7 @@ export class PaymentClientWebView implements PaymentClient {
     public getPaymentSettings(): Observable<PaymentSettings> {
         var id = this.setupCallback((json) => {
             var ps = PaymentSettings.fromJson(json);
-            console.log("NATIVE: PaymentSettings");
+            console.log("PaymentSettings");
             console.log(ps);
             this.paymentSettings.next(ps);
         }, (e) => {
@@ -111,18 +125,26 @@ export class PaymentClientWebView implements PaymentClient {
      * @param request The request
      * @return Completable that represents the acceptance of the request
      */
-    public initiateRequest(request: Request): Promise<void> {
-        // setup the response callback
-        // cordovaExec<string>('setResponseCallback').then((json) => {
-        //     var response = Response.fromJson(json);
-        //     console.log("Got response in callback");
-        //     this.responseSubject.next(response);
-        // }).catch((error) => {
-        //     console.log("Got error from response");
-        //     console.log(error);
-        // });
-        // return cordovaExec('initiateRequest', [request.toJson()]);
-        return new Promise<void>(() => {});
+    public initiateRequest(request: Request | string | any): Promise<void> {
+
+        return new Promise((resolve, reject) => {
+            var id = this.setupCallback((json) => {
+                console.log("Payment initiated");
+                resolve();
+            }, (e) => {
+                console.log("Failed to initiate payment");
+                console.log(e);
+                reject(e);
+            });
+
+            if(request instanceof Request) {
+                this.appFlowBridge.initiateRequest(id, request.toJson());
+            } else if(typeof request === "string") {
+                this.appFlowBridge.initiateRequest(id, request);            
+            } else {
+                this.appFlowBridge.initiateRequest(id, JSON.stringify(request));
+            }
+        });
     }
 
     /**
@@ -141,26 +163,25 @@ export class PaymentClientWebView implements PaymentClient {
      * @param payment The payment to process
      * @return Completable that represents the acceptance of the request
      */
-    public initiatePayment(payment: Payment | string | any): Promise<void> {
-        
-        var id = this.setupCallback((json) => {
-            console.log("Payment initiated");
-        }, (e) => {
-            console.log("Failed to initiate payment");
-            console.log(e);
-        });
-
-        if(payment instanceof Payment) {
-            this.appFlowBridge.initiatePayment(id, payment.toJson());
-        } else if(typeof payment === "string") {
-            this.appFlowBridge.initiatePayment(id, payment);            
-        } else {
-            this.appFlowBridge.initiatePayment(id, JSON.stringify(payment));
-        }
-
+    public initiatePayment(payment: Payment | string | any): Promise<void> {    
         return new Promise((resolve, reject) => {
-            // TODO
-        });     
+            var id = this.setupCallback((json) => {
+                console.log("Payment initiated");
+                resolve();
+            }, (e) => {
+                console.log("Failed to initiate payment");
+                console.log(e);
+                reject(e);
+            });
+
+            if(payment instanceof Payment) {
+                this.appFlowBridge.initiatePayment(id, payment.toJson());
+            } else if(typeof payment === "string") {
+                this.appFlowBridge.initiatePayment(id, payment);            
+            } else {
+                this.appFlowBridge.initiatePayment(id, JSON.stringify(payment));
+            }
+        });    
     }
 
     /**
@@ -219,16 +240,19 @@ export class PaymentClientWebView implements PaymentClient {
      * @return A stream that will emit {@link FlowEvent} items
      */
     public subscribeToSystemEvents(): Observable<FlowEvent> {
-        // cordovaExecCallback('setSystemEventsCallback', this.onFlowEvent, [{keepCallback: true}]);
-        // return PaymentClientCordova.eventsSubject.asObservable();
-        return NEVER;
-    }
+        // setup the payment response callback
+        var id = this.setupCallback((json) => {
+            var event = FlowEvent.fromJson(json);
+            console.log("Got event in callback");
+            console.log(event);
+            PaymentClientWebView.eventsSubject.next(event);
+        }, (e) => {
+            console.log("Got error from payment response");
+            console.log(e);
+        }, [], true);
+        this.appFlowBridge.setEventsCallback(id)
 
-    private onFlowEvent(data: string) {
-        var event = FlowEvent.fromJson(data);
-        console.log("Got event in callback");
-        console.log(event);
-        //PaymentClientCordova.eventsSubject.next(event);
+        return PaymentClientWebView.eventsSubject.asObservable();
     }
 
     public subscribeToPaymentResponses(): Observable<PaymentResponse> {
