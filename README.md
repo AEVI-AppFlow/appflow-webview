@@ -33,7 +33,7 @@ Once the script is embedded two global javascript objects will be available for 
 A basic payment could be written as below.
 
 ```
-    var uuid = makeid(24);
+    var uuid = ... // each request must have a unique id created by the client. Use your favourite method here e.g. uuid/v4;
     paymentClient.initiatePayment({
         id: uuid,
         flowType: "sale",
